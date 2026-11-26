@@ -643,6 +643,15 @@ def cost_per_token(
             model=model_without_prefix, custom_llm_provider=custom_llm_provider
         )
         cost_metric: Final = select_cost_metric_for_model(speech_model_info)
+        verbose_logger.debug(
+            "TTS cost input: provider=%s model=%s metric=%s character_rate=%s prompt_characters=%s deployment_info=%s",
+            custom_llm_provider,
+            model_without_prefix,
+            cost_metric,
+            speech_model_info.get("input_cost_per_character"),
+            prompt_characters,
+            deployment_model_info is not None,
+        )
         prompt_cost: float = 0.0
         completion_cost: float = 0.0
         if cost_metric == "cost_per_character":
@@ -2361,21 +2370,40 @@ def _deployment_model_info(
     if not custom_pricing:
         return None
     registered_deployment_info: Final = _raw_cost_map_entry(router_model_id) if router_model_id is not None else None
-    if registered_deployment_info is not None:
-        return cast(ModelInfo, registered_deployment_info)  # cast-ok: router registers deployment prices under its id
-    if litellm_logging_obj is None:
-        return None
-    litellm_params: Final = litellm_logging_obj.litellm_params
+    litellm_params: dict[str, object] | None = (
+        litellm_logging_obj.litellm_params if litellm_logging_obj is not None else None
+    )
     if not litellm_params:
-        return None
-    return next(
+        return cast(ModelInfo, registered_deployment_info) if registered_deployment_info is not None else None
+
+    metadata_model_info: Mapping[str, object] | None = next(
         (
             model_info
             for metadata_key in ("metadata", "litellm_metadata")
-            if (metadata := litellm_params.get(metadata_key)) and (model_info := metadata.get("model_info")) is not None
+            if isinstance((metadata := litellm_params.get(metadata_key)), Mapping)
+            and isinstance((model_info := metadata.get("model_info")), Mapping)
         ),
         None,
     )
+    # Proxy deployment pricing can be carried in either the top-level
+    # ``model_info`` or directly in ``litellm_params``. Merge these over the
+    # router's registered entry so deployment-specific character rates win
+    # over an otherwise empty or token-priced model-id cost-map entry.
+    top_level_model_info: Mapping[str, object] = (
+        litellm_params.get("model_info") if isinstance(litellm_params.get("model_info"), Mapping) else {}
+    )
+    direct_character_pricing: Final = {
+        key: litellm_params[key]
+        for key in ("input_cost_per_character", "output_cost_per_character")
+        if litellm_params.get(key) is not None
+    }
+    merged_model_info: Final = {
+        **(registered_deployment_info or {}),
+        **(metadata_model_info or {}),
+        **top_level_model_info,
+        **direct_character_pricing,
+    }
+    return cast(ModelInfo, merged_model_info) if merged_model_info else None
 
 
 def _ocr_model_info(

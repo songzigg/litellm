@@ -20896,6 +20896,7 @@
         "supports_tool_choice": true
     },
     "qwen_ai_platform/qwen-audio-3.0-tts-plus": {
+        "input_cost_per_character": 0.0001,
         "litellm_provider": "qwen_ai_platform",
         "mode": "audio_speech",
         "source": "https://help.aliyun.com/zh/model-studio/token-plan-speech-synthesis",

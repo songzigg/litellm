@@ -215,7 +215,14 @@ def generic_cost_per_character(
         Exception if 'input_cost_per_character' or 'output_cost_per_character' is missing from model_info
     """
     ## GET MODEL INFO
-    model_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    # Only consult the cost map when a rate was not supplied by the caller.
+    # Deployment-priced models (e.g. proxy DB models) may be absent from the
+    # cost map entirely, and looking them up would raise ModelNotMappedError.
+    model_info: Final = (
+        litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        if custom_prompt_cost is None or custom_completion_cost is None
+        else {}
+    )
 
     ## CALCULATE INPUT COST
     try:
