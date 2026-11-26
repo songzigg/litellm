@@ -2067,7 +2067,10 @@ class CostCalculatorUtils:
         resolved_quality: Final = (
             quality or completion_response.quality or _requested_image_param(optional_params, "quality") or "standard"
         )
-        resolved_n: Final = n if n is not None else (len(completion_response.data) if completion_response.data else 0)
+        # Bill the images actually returned; the requested ``n`` can exceed what
+        # the provider produced. Fall back to ``n`` only when the response has
+        # no image list to count.
+        resolved_n: Final = len(completion_response.data) if completion_response.data else (n if n is not None else 0)
         pricing: Final = deployment_pricing(model_info)
 
         if custom_llm_provider == litellm.LlmProviders.VERTEX_AI.value:

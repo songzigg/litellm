@@ -1747,6 +1747,61 @@ def test_default_image_cost_calculator(monkeypatch):
     assert cost == 10485760
 
 
+@pytest.mark.parametrize("size", ["2048*1152", "2048x1152", "2048×1152", "2048-x-1152", "2K"])
+def test_default_image_cost_calculator_accepts_provider_size_spellings(size: str) -> None:
+    """DashScope/Qwen sizes use ``W*H``; symbolic sizes still bill per image."""
+    from litellm.cost_calculator import default_image_cost_calculator
+
+    cost = default_image_cost_calculator(
+        model="qwen_ai_platform/qwen-image-3.0-pro",
+        custom_llm_provider="qwen_ai_platform",
+        size=size,
+        n=1,
+        model_info={"output_cost_per_image": 0.03},
+    )
+
+    assert cost == pytest.approx(0.03)
+
+
+def test_default_image_cost_calculator_bills_pixels_for_star_size() -> None:
+    from litellm.cost_calculator import default_image_cost_calculator
+
+    cost = default_image_cost_calculator(
+        model="qwen_ai_platform/qwen-image-3.0-pro",
+        custom_llm_provider="qwen_ai_platform",
+        size="10*20",
+        n=2,
+        model_info={"input_cost_per_pixel": 0.001},
+    )
+
+    assert cost == pytest.approx(0.4)
+
+
+@pytest.mark.parametrize(
+    ("returned", "requested_n", "expected"),
+    [(1, 4, 0.03), (2, None, 0.06), (3, 3, 0.09)],
+)
+def test_image_generation_bills_returned_image_count(returned: int, requested_n: int | None, expected: float) -> None:
+    """The returned image count wins over the requested ``n``."""
+    from litellm.litellm_core_utils.llm_cost_calc.utils import CostCalculatorUtils
+    from litellm.types.utils import ImageObject, ImageResponse
+
+    response = ImageResponse(data=[ImageObject(url=f"https://example.com/{i}.png") for i in range(returned)])
+
+    cost = CostCalculatorUtils.route_image_generation_cost_calculator(
+        model="qwen_ai_platform/qwen-image-3.0-pro",
+        custom_llm_provider="qwen_ai_platform",
+        completion_response=response,
+        n=requested_n,
+        size="2048*1152",
+        optional_params={},
+        call_type="aimage_generation",
+        model_info={"output_cost_per_image": 0.03},
+    )
+
+    assert cost == pytest.approx(expected)
+
+
 @pytest.mark.parametrize(
     ("model", "quality", "size", "priced_key", "pixels"),
     [

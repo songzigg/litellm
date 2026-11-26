@@ -2741,6 +2741,19 @@ def transcription_cost(model: str, custom_llm_provider: str | None, duration: fl
     return openai_cost_per_second(model=model, custom_llm_provider=custom_llm_provider, duration=duration)
 
 
+_IMAGE_SIZE_SEPARATORS: Final = ("*", "×", "X")
+
+
+def _normalize_image_size(size: str) -> str:
+    """Return ``size`` as ``"<w>-x-<h>"`` for any ``x`` / ``*`` / ``×`` spelling."""
+    if "-x-" in size:
+        return size
+    normalized = size.strip()
+    for separator in _IMAGE_SIZE_SEPARATORS:
+        normalized = normalized.replace(separator, "x")
+    return normalized.replace("x", "-x-") if "x" in normalized else normalized
+
+
 def default_image_cost_calculator(
     model: str,
     custom_llm_provider: str | None = None,
@@ -2767,12 +2780,18 @@ def default_image_cost_calculator(
     Raises:
         Exception: If model pricing not found in cost map
     """
-    # Standardize size format to use "-x-"
-    size_str: str = size or "1024-x-1024"
-    size_str = size_str.replace("x", "-x-") if "x" in size_str and "-x-" not in size_str else size_str
+    # Standardize size format to use "-x-". Providers spell sizes differently:
+    # OpenAI "1024x1024", DashScope/Qwen "2048*1152".
+    size_str: str = _normalize_image_size(size or "1024-x-1024")
 
-    # Parse dimensions
-    height, width = map(int, size_str.split("-x-"))
+    # Parse dimensions. Symbolic sizes ("2K", "auto") have no pixel count; they
+    # can still be billed per image, just not per pixel.
+    pixel_count: int | None
+    try:
+        height, width = map(int, size_str.split("-x-"))
+        pixel_count = height * width
+    except ValueError:
+        pixel_count = None
 
     # Build model names for cost lookup
     base_model_name = f"{size_str}/{model}"
@@ -2817,7 +2836,7 @@ def default_image_cost_calculator(
     unit_counts: Final = (
         ("input_cost_per_image", image_count),
         ("output_cost_per_image", image_count),
-        ("input_cost_per_pixel", height * width * image_count),
+        *((("input_cost_per_pixel", pixel_count * image_count),) if pixel_count is not None else ()),
     )
     cost: Final = next(
         (
