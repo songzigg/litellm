@@ -63,11 +63,17 @@ const PTU_EDIT_FIELDS: PtuEditField[] = [
   { name: PTU_END_FIELD, label: "PTU Effective To (UTC)", input: "datetime" },
 ];
 
-export type TouchedPricingField = "input_cost" | "output_cost" | "cache_read_cost" | "cache_write_cost";
+export type TouchedPricingField =
+  | "input_cost"
+  | "output_cost"
+  | "input_cost_per_character"
+  | "cache_read_cost"
+  | "cache_write_cost";
 
 const PRICING_FIELDS: readonly TouchedPricingField[] = [
   "input_cost",
   "output_cost",
+  "input_cost_per_character",
   "cache_read_cost",
   "cache_write_cost",
 ] as const;
@@ -75,6 +81,10 @@ const PRICING_FIELDS: readonly TouchedPricingField[] = [
 const COST_SOURCES: Record<TouchedPricingField, { param: string; info: string }> = {
   input_cost: { param: "input_cost_per_token", info: "input_cost_per_token" },
   output_cost: { param: "output_cost_per_token", info: "output_cost_per_token" },
+  input_cost_per_character: {
+    param: "input_cost_per_character",
+    info: "input_cost_per_character",
+  },
   cache_read_cost: { param: "cache_read_input_token_cost", info: "cache_read_input_token_cost" },
   cache_write_cost: { param: "cache_creation_input_token_cost", info: "cache_creation_input_token_cost" },
 };
@@ -92,6 +102,7 @@ export interface ModelEditFormValues {
   stream_timeout?: string | number | null;
   input_cost?: string | number | null;
   output_cost?: string | number | null;
+  input_cost_per_character?: string | number | null;
   cache_read_cost?: string | number | null;
   cache_write_cost?: string | number | null;
   ptu_count?: string | number | null;
@@ -129,6 +140,7 @@ const modelEditShape = {
   stream_timeout: scalar,
   input_cost: scalar,
   output_cost: scalar,
+  input_cost_per_character: scalar,
   cache_read_cost: scalar,
   cache_write_cost: scalar,
   ptu_count: scalar,
@@ -231,6 +243,12 @@ export const toModelEditFormValues = (localModelData: any, isWildcardModel: bool
     localModelData.litellm_params?.output_cost_per_token,
     localModelData.model_info?.output_cost_per_token,
   ),
+  input_cost_per_character:
+    localModelData.litellm_params?.input_cost_per_character != null
+      ? localModelData.litellm_params.input_cost_per_character * 1_000_000
+      : localModelData.model_info?.input_cost_per_character != null
+        ? localModelData.model_info.input_cost_per_character * 1_000_000
+        : null,
   ptu_count: localModelData.model_info?.ptu_count ?? null,
   cost_per_ptu_per_hour: localModelData.model_info?.cost_per_ptu_per_hour ?? null,
   ptu_effective_from: utcIsoToPickerValue(localModelData.model_info?.ptu_effective_from),
@@ -477,6 +495,12 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
 
             {pricingField("input_cost", "Input Cost (per 1M tokens)", "Enter input cost")}
             {pricingField("output_cost", "Output Cost (per 1M tokens)", "Enter output cost")}
+            {pricingField(
+              "input_cost_per_character",
+              "TTS Input Cost (per 1M characters)",
+              "Enter TTS input cost",
+              "Used for speech requests billed by input text characters. Enter the USD cost per 1M characters.",
+            )}
 
             {ptuCostAttributionEnabled &&
               PTU_EDIT_FIELDS.map((ptuField) => (

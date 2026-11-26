@@ -309,6 +309,18 @@ export default function ModelInfoView({
           updatedLitellmParams.output_cost_per_token = null;
         }
       }
+      const ttsCharacterRateIsSet =
+        values.input_cost_per_character !== undefined &&
+        values.input_cost_per_character !== null &&
+        values.input_cost_per_character !== "";
+      if (ttsCharacterRateIsSet || isFieldTouched("input_cost_per_character")) {
+        if (ttsCharacterRateIsSet) {
+          updatedLitellmParams.input_cost_per_character = Number(values.input_cost_per_character) / 1_000_000;
+        } else {
+          // Explicit null clears the character pricing override.
+          updatedLitellmParams.input_cost_per_character = null;
+        }
+      }
 
       // Cache Read Cost:
       //   - explicit value provided → use it
