@@ -38,6 +38,8 @@ export interface ModelData {
   output_cost_per_second_tiers?: PerSecondCostTier[];
   /** USD per 1M input characters (TTS), formatted like input_cost. */
   input_cost_per_character?: string | null;
+  /** USD per returned image (image generation). */
+  output_cost_per_image?: number | null;
   max_tokens?: number;
   max_input_tokens?: number;
   api_base?: string;

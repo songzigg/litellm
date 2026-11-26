@@ -321,6 +321,14 @@ export default function ModelInfoView({
           updatedLitellmParams.input_cost_per_character = null;
         }
       }
+      const imageRateIsSet =
+        values.output_cost_per_image !== undefined &&
+        values.output_cost_per_image !== null &&
+        values.output_cost_per_image !== "";
+      if (imageRateIsSet || isFieldTouched("output_cost_per_image")) {
+        // Explicit null clears the per-image pricing override.
+        updatedLitellmParams.output_cost_per_image = imageRateIsSet ? Number(values.output_cost_per_image) : null;
+      }
 
       // Cache Read Cost:
       //   - explicit value provided → use it

@@ -67,6 +67,7 @@ export type TouchedPricingField =
   | "input_cost"
   | "output_cost"
   | "input_cost_per_character"
+  | "output_cost_per_image"
   | "cache_read_cost"
   | "cache_write_cost";
 
@@ -85,6 +86,7 @@ const COST_SOURCES: Record<TouchedPricingField, { param: string; info: string }>
     param: "input_cost_per_character",
     info: "input_cost_per_character",
   },
+  output_cost_per_image: { param: "output_cost_per_image", info: "output_cost_per_image" },
   cache_read_cost: { param: "cache_read_input_token_cost", info: "cache_read_input_token_cost" },
   cache_write_cost: { param: "cache_creation_input_token_cost", info: "cache_creation_input_token_cost" },
 };
@@ -103,6 +105,7 @@ export interface ModelEditFormValues {
   input_cost?: string | number | null;
   output_cost?: string | number | null;
   input_cost_per_character?: string | number | null;
+  output_cost_per_image?: string | number | null;
   cache_read_cost?: string | number | null;
   cache_write_cost?: string | number | null;
   ptu_count?: string | number | null;
@@ -141,6 +144,7 @@ const modelEditShape = {
   input_cost: scalar,
   output_cost: scalar,
   input_cost_per_character: scalar,
+  output_cost_per_image: scalar,
   cache_read_cost: scalar,
   cache_write_cost: scalar,
   ptu_count: scalar,
@@ -249,6 +253,8 @@ export const toModelEditFormValues = (localModelData: any, isWildcardModel: bool
       : localModelData.model_info?.input_cost_per_character != null
         ? localModelData.model_info.input_cost_per_character * 1_000_000
         : null,
+  output_cost_per_image:
+    localModelData.litellm_params?.output_cost_per_image ?? localModelData.model_info?.output_cost_per_image ?? null,
   ptu_count: localModelData.model_info?.ptu_count ?? null,
   cost_per_ptu_per_hour: localModelData.model_info?.cost_per_ptu_per_hour ?? null,
   ptu_effective_from: utcIsoToPickerValue(localModelData.model_info?.ptu_effective_from),
@@ -291,7 +297,9 @@ export const toModelEditFormValues = (localModelData: any, isWildcardModel: bool
 const displayCost = (localModelData: any, field: TouchedPricingField): string => {
   const { param, info } = COST_SOURCES[field];
   const rate = localModelData?.litellm_params?.[param] ?? localModelData?.model_info?.[info];
-  return rate != null ? (Number(rate) * 1_000_000).toFixed(4) : "Not Set";
+  // Token and character rates are shown per 1M units; per-image rates are shown as-is.
+  const scale = field === "output_cost_per_image" ? 1 : 1_000_000;
+  return rate != null ? (Number(rate) * scale).toFixed(4) : "Not Set";
 };
 
 interface ModelInfoEditFormProps {
@@ -500,6 +508,12 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
               "TTS Input Cost (per 1M characters)",
               "Enter TTS input cost",
               "Used for speech requests billed by input text characters. Enter the USD cost per 1M characters.",
+            )}
+            {pricingField(
+              "output_cost_per_image",
+              "Image Output Cost (per image)",
+              "Enter cost per image",
+              "Used for image generation billed per returned image. Enter the USD cost per image.",
             )}
 
             {ptuCostAttributionEnabled &&

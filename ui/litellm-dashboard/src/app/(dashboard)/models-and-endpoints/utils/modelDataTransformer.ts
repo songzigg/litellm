@@ -11,6 +11,7 @@ export const perSecondCostTiers = (modelInfo: Record<string, unknown> | null | u
 interface RawLitellmParams extends LiteLLMParams {
   output_cost_per_second?: number;
   input_cost_per_character?: number | null;
+  output_cost_per_image?: number | null;
 }
 
 interface RawModelInfo extends ModelInfo {
@@ -18,6 +19,7 @@ interface RawModelInfo extends ModelInfo {
   output_cost_per_token?: number | null;
   output_cost_per_second?: number;
   input_cost_per_character?: number | null;
+  output_cost_per_image?: number | null;
   max_tokens?: number;
   max_input_tokens?: number;
   [key: string]: unknown;
@@ -60,6 +62,7 @@ const transformModel = (rawModel: RawModel, getProviderFromModel: (model: string
     input_cost_per_character: costPerMillionTokens(
       litellmParams.input_cost_per_character ?? modelInfo?.input_cost_per_character,
     ),
+    output_cost_per_image: litellmParams.output_cost_per_image ?? modelInfo?.output_cost_per_image ?? null,
     litellm_model_name: litellmParams.model,
     max_tokens: modelInfo?.max_tokens,
     max_input_tokens: modelInfo?.max_input_tokens,

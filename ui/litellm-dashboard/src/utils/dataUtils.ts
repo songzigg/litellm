@@ -66,6 +66,9 @@ export const getSpendString = (value: number | null | undefined, decimals: numbe
 export const formatPerSecondCost = (cost: number): string =>
   `$${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}/s`;
 
+export const formatPerImageCost = (cost: number): string =>
+  `$${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}/image`;
+
 export const copyToClipboard = async (
   text: string | null | undefined,
   messageText: string = "Copied to clipboard",

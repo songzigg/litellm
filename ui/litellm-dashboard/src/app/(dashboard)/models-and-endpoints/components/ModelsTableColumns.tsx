@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Switch } from "@/components/ui/switch";
 import { getDisplayModelName } from "@/components/view_model/model_name_display";
-import { copyToClipboard, formatPerSecondCost } from "@/utils/dataUtils";
+import { copyToClipboard, formatPerImageCost, formatPerSecondCost } from "@/utils/dataUtils";
 
 export const MODEL_ID_COLUMN_ID = "model_info_id";
 export const MODEL_NAME_COLUMN_ID = "model_name";
@@ -212,19 +212,22 @@ function CostsCell({ model }: { model: ModelData }) {
     output_cost: outputCost,
     output_cost_per_second: perSecond,
     input_cost_per_character: perCharacter,
+    output_cost_per_image: perImage,
   } = model;
   const hasPerSecond = perSecond != null;
   const hasPerCharacter = perCharacter != null;
-  const hasNonTokenRate = hasPerSecond || hasPerCharacter;
+  const hasPerImage = perImage != null;
+  const hasNonTokenRate = hasPerSecond || hasPerCharacter || hasPerImage;
   const showInput = inputCost != null && (!hasNonTokenRate || Number(inputCost) > 0);
   const showOutput = outputCost != null && (!hasNonTokenRate || Number(outputCost) > 0);
 
-  if (!showInput && !showOutput && !hasPerSecond && !hasPerCharacter) {
+  if (!showInput && !showOutput && !hasPerSecond && !hasPerCharacter && !hasPerImage) {
     return <span className="text-sm text-muted-foreground">-</span>;
   }
 
   const tooltipParts = ["Cost per 1M tokens"];
   if (hasPerCharacter) tooltipParts.push("/1M chars is cost per 1M input characters");
+  if (hasPerImage) tooltipParts.push("/image is cost per generated image");
   if (hasPerSecond) tooltipParts.push("/s is cost per second of output");
 
   return (
@@ -235,6 +238,7 @@ function CostsCell({ model }: { model: ModelData }) {
           {showInput && <CostRow label="IN" value={`$${inputCost}`} />}
           {hasPerCharacter && <CostRow label="IN" value={`$${perCharacter}/1M chars`} />}
           {showOutput && <CostRow label="OUT" value={`$${outputCost}`} />}
+          {hasPerImage && <CostRow label="OUT" value={formatPerImageCost(perImage)} />}
           {hasPerSecond && <CostRow label="OUT" value={formatPerSecondCost(perSecond)} />}
         </div>
       }
