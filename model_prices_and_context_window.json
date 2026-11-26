@@ -20895,6 +20895,21 @@
         "supports_reasoning": true,
         "supports_tool_choice": true
     },
+    "qwen_ai_platform/qwen-audio-3.0-tts-plus": {
+        "litellm_provider": "qwen_ai_platform",
+        "mode": "audio_speech",
+        "source": "https://help.aliyun.com/zh/model-studio/token-plan-speech-synthesis",
+        "supported_endpoints": [
+            "/v1/audio/speech"
+        ],
+        "supported_modalities": [
+            "text",
+            "audio"
+        ],
+        "supported_output_modalities": [
+            "audio"
+        ]
+    },
     "qwen_ai_platform/qwen-image-2.0": {
         "litellm_provider": "qwen_ai_platform",
         "mode": "image_generation",

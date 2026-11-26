@@ -9029,6 +9029,32 @@ def speech(
             client=client,
             _is_async=aspeech or False,
         )
+    elif custom_llm_provider == "qwen_ai_platform":
+        from litellm.llms.dashscope.qwen_ai_platform import (
+            QwenAIPlatformTextToSpeechConfig,
+        )
+
+        qwen_tts_config: Final = text_to_speech_provider_config or QwenAIPlatformTextToSpeechConfig()
+        if api_base is not None:
+            litellm_params_dict["api_base"] = api_base
+        if api_key is not None:
+            litellm_params_dict["api_key"] = api_key
+
+        qwen_voice: Final[str | None] = voice if isinstance(voice, str) else None
+        response = base_llm_http_handler.text_to_speech_handler(
+            model=model,
+            input=input,
+            voice=qwen_voice,
+            text_to_speech_provider_config=qwen_tts_config,
+            text_to_speech_optional_params=optional_params,
+            custom_llm_provider=custom_llm_provider,
+            litellm_params=litellm_params_dict,
+            logging_obj=logging_obj,
+            timeout=http_timeout,
+            extra_headers=extra_headers,
+            client=client,
+            _is_async=aspeech or False,
+        )
     elif custom_llm_provider == "aws_polly":
         from litellm.llms.aws_polly.text_to_speech.transformation import (
             AWSPollyTextToSpeechConfig,

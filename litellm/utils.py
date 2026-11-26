@@ -10653,6 +10653,12 @@ class ProviderConfigManager:
             )
 
             return MistralTextToSpeechConfig()
+        elif litellm.LlmProviders.QWEN_AI_PLATFORM == provider:
+            from litellm.llms.dashscope.qwen_ai_platform import (
+                QwenAIPlatformTextToSpeechConfig,
+            )
+
+            return QwenAIPlatformTextToSpeechConfig()
         elif litellm.LlmProviders.AWS_POLLY == provider:
             from litellm.llms.aws_polly.text_to_speech.transformation import (
                 AWSPollyTextToSpeechConfig,
