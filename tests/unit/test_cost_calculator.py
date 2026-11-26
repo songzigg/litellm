@@ -9173,6 +9173,35 @@ def test_azure_tts_cost_uses_test_owned_character_rate(monkeypatch: pytest.Monke
     assert cost == pytest.approx(0.05)
 
 
+def test_proxy_tts_cost_uses_custom_deployment_character_rate() -> None:
+    """Proxy model pricing stored in deployment metadata must bill TTS characters."""
+    model_info = {
+        "input_cost_per_character": 0.01,
+        "output_cost_per_character": 0.0,
+        "litellm_provider": "qwen_ai_platform",
+        "mode": "audio_speech",
+    }
+    logging_obj = SimpleNamespace(
+        litellm_params={"metadata": {"model_info": model_info}},
+        model="qwen_ai_platform/qwen-audio-3.0-tts-plus",
+        model_call_details={},
+        get_response_ms=lambda: 0,
+    )
+
+    cost: Final = response_cost_calculator(
+        response_object=TranscriptionResponse(text=""),
+        model="qwen_ai_platform/qwen-audio-3.0-tts-plus",
+        custom_llm_provider="qwen_ai_platform",
+        call_type="aspeech",
+        optional_params={},
+        prompt="hello",
+        custom_pricing=True,
+        litellm_logging_obj=logging_obj,
+    )
+
+    assert cost == pytest.approx(0.05)
+
+
 def test_moderation_cost_uses_test_owned_token_rate() -> None:
     prompt: Final = "moderation input"
     rates: Final = MappingProxyType(

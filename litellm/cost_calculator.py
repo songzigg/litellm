@@ -462,6 +462,7 @@ def cost_per_token(
     request_model: str | None = None,  # original request model for router detection
     custom_model_info: OCRPricing | None = None,
     bedrock_model_info: ModelInfo | None = None,
+    deployment_model_info: ModelInfo | None = None,
 ) -> tuple[float, float]:
     """
     Calculates the cost per token for a given model, prompt tokens, and completion tokens.
@@ -638,7 +639,9 @@ def cost_per_token(
         )
         if lyria_generation_cost is not None:
             return 0.0, lyria_generation_cost
-        speech_model_info = litellm.get_model_info(model=model_without_prefix, custom_llm_provider=custom_llm_provider)
+        speech_model_info = deployment_model_info or litellm.get_model_info(
+            model=model_without_prefix, custom_llm_provider=custom_llm_provider
+        )
         cost_metric: Final = select_cost_metric_for_model(speech_model_info)
         prompt_cost: float = 0.0
         completion_cost: float = 0.0
@@ -652,7 +655,7 @@ def cost_per_token(
                 custom_llm_provider=custom_llm_provider,
                 prompt_characters=prompt_characters,
                 completion_characters=0,
-                custom_prompt_cost=None,
+                custom_prompt_cost=speech_model_info.get("input_cost_per_character"),
                 custom_completion_cost=0,
             )
             if _prompt_cost is None or _completion_cost is None:
@@ -2067,6 +2070,9 @@ def completion_cost(
                     response=completion_response,
                     custom_model_info=_ocr_model_info(litellm_logging_obj, custom_pricing, router_model_id),
                     bedrock_model_info=bedrock_model_info,
+                    deployment_model_info=_deployment_model_info(
+                        litellm_logging_obj, custom_pricing, router_model_id
+                    ),
                 )
 
                 # Get additional costs from provider (e.g., routing fees, infrastructure costs)
