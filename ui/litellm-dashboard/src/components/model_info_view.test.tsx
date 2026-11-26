@@ -2166,3 +2166,33 @@ describe("ModelInfoView", () => {
     );
   });
 });
+
+describe("editedModelInfoPricing", () => {
+  it("returns only pricing keys edited in the Model Info JSON", async () => {
+    const { editedModelInfoPricing } = await import("./model_info_view");
+    const original = {
+      id: "m1",
+      output_cost_per_second: 0.18,
+      output_cost_per_second_720p: 0.14,
+      cost_per_ptu_per_hour: 1,
+    };
+    const edited = {
+      ...original,
+      output_cost_per_second_720p: 0.2,
+      output_cost_per_second_480p: 0.05,
+      cost_per_ptu_per_hour: 2,
+      mode: "video_generation",
+    };
+
+    expect(editedModelInfoPricing(edited, original)).toEqual({
+      output_cost_per_second_720p: 0.2,
+      output_cost_per_second_480p: 0.05,
+    });
+  });
+
+  it("returns nothing when no price changed", async () => {
+    const { editedModelInfoPricing } = await import("./model_info_view");
+    const info = { output_cost_per_second: 0.18, output_cost_per_image: null };
+    expect(editedModelInfoPricing({ ...info }, info)).toEqual({});
+  });
+});

@@ -62,6 +62,26 @@ interface ModelInfoViewProps {
   modelAccessGroups: string[] | null;
 }
 
+// model_info keys the backend treats as deployment pricing (mirrors
+// CustomPricingLiteLLMParams). PTU cost is a model_info field and stays there.
+const isDeploymentPricingKey = (key: string): boolean =>
+  key !== "cost_per_ptu_per_hour" &&
+  key !== "pricing_overrides" &&
+  (key.includes("cost") || key === "tiered_pricing" || key.includes("uplift_multiplier"));
+
+/** Pricing keys whose value in the edited Model Info JSON differs from what was shown. */
+export const editedModelInfoPricing = (
+  edited: object | null | undefined,
+  original: object | null | undefined,
+): Record<string, unknown> => {
+  const before: Record<string, unknown> = { ...(original ?? {}) };
+  return Object.fromEntries(
+    Object.entries(edited ?? {}).filter(
+      ([key, value]) => isDeploymentPricingKey(key) && JSON.stringify(value) !== JSON.stringify(before[key] ?? null),
+    ),
+  );
+};
+
 export default function ModelInfoView({
   modelId,
   onClose,
@@ -411,6 +431,14 @@ export default function ModelInfoView({
         }
         if (values.team_id) updatedModelInfo = { ...updatedModelInfo, team_id: values.team_id };
         updatedModelInfo = applyPtuModelInfo(updatedModelInfo, values, ptuCostAttributionEnabled);
+        // The backend drops pricing keys from model_info on save (they are display
+        // values filled from the cost map); a deployment's own prices live on
+        // litellm_params. Carry over only the prices edited in the JSON so the
+        // untouched cost-map values are not frozen as deployment overrides.
+        updatedLitellmParams = {
+          ...updatedLitellmParams,
+          ...editedModelInfoPricing(updatedModelInfo, modelData?.model_info),
+        };
       } catch (e) {
         toast.fromError("Invalid JSON in Model Info");
         return;
