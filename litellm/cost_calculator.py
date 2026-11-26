@@ -2852,6 +2852,34 @@ def default_image_cost_calculator(
     return cost
 
 
+_VIDEO_PER_SECOND_TIER_PREFIX: Final = "output_cost_per_second_"
+
+
+def _video_cost_info_with_deployment_overrides(
+    catalog_info: Mapping[str, object] | None, deployment_info: Mapping[str, object]
+) -> dict:
+    """Overlay a deployment's video prices on the cost-map entry.
+
+    A flat ``output_cost_per_second`` override is the price for every resolution,
+    so the cost map's per-resolution tiers are dropped for it; overriding a single
+    tier keeps the cost-map price for the other resolutions.
+    """
+    overrides: Final = {k: v for k, v in deployment_info.items() if v is not None}
+    flat_rate_overridden: Final = overrides.get("output_cost_per_second") is not None
+    # The cost map's video-wide rate is read before per-second rates, so it must
+    # not shadow a deployment's own per-second pricing.
+    per_second_overridden: Final = any(
+        k == "output_cost_per_second" or k.startswith(_VIDEO_PER_SECOND_TIER_PREFIX) for k in overrides
+    )
+    base: Final = {
+        k: v
+        for k, v in (catalog_info or {}).items()
+        if not (flat_rate_overridden and k.startswith(_VIDEO_PER_SECOND_TIER_PREFIX))
+        and not (per_second_overridden and k == "output_cost_per_video_per_second")
+    }
+    return {**base, **overrides}
+
+
 def default_video_cost_calculator(
     model: str,
     duration_seconds: float,
@@ -2877,39 +2905,40 @@ def default_video_cost_calculator(
     Raises:
         Exception: If model pricing not found in cost map
     """
-    # Use custom model_info pricing if provided (deployment-specific pricing)
+    # Deployment pricing (model_info) overrides the cost map entry field by field,
+    # so overriding one resolution keeps the cost-map price for the others.
     cost_info: dict | None = None
+    # Build model names for cost lookup
+    base_model_name = model
+    model_name_without_custom_llm_provider: str | None = None
+    if custom_llm_provider and model.startswith(f"{custom_llm_provider}/"):
+        model_name_without_custom_llm_provider = model.replace(f"{custom_llm_provider}/", "")
+        base_model_name = f"{custom_llm_provider}/{model_name_without_custom_llm_provider}"
+
+    verbose_logger.debug("Looking up cost for video model: %s", base_model_name)
+
+    model_without_provider: Final = model.split("/")[-1]
+
+    # Try model with provider first, fall back to base model name
+    models_to_check: Final[list[str | None]] = [
+        base_model_name,
+        model,
+        model_without_provider,
+        model_name_without_custom_llm_provider,
+    ]
+    for _model in models_to_check:
+        if _model is not None and _model in litellm.model_cost:
+            cost_info = litellm.model_cost[_model]
+            break
+
+    # If still not found, try with custom_llm_provider prefix
+    if cost_info is None and custom_llm_provider:
+        prefixed_model: Final = f"{custom_llm_provider}/{model}"
+        if prefixed_model in litellm.model_cost:
+            cost_info = litellm.model_cost[prefixed_model]
+
     if model_info is not None:
-        cost_info = dict(model_info)
-    else:
-        # Build model names for cost lookup
-        base_model_name = model
-        model_name_without_custom_llm_provider: str | None = None
-        if custom_llm_provider and model.startswith(f"{custom_llm_provider}/"):
-            model_name_without_custom_llm_provider = model.replace(f"{custom_llm_provider}/", "")
-            base_model_name = f"{custom_llm_provider}/{model_name_without_custom_llm_provider}"
-
-        verbose_logger.debug("Looking up cost for video model: %s", base_model_name)
-
-        model_without_provider: Final = model.split("/")[-1]
-
-        # Try model with provider first, fall back to base model name
-        models_to_check: Final[list[str | None]] = [
-            base_model_name,
-            model,
-            model_without_provider,
-            model_name_without_custom_llm_provider,
-        ]
-        for _model in models_to_check:
-            if _model is not None and _model in litellm.model_cost:
-                cost_info = litellm.model_cost[_model]
-                break
-
-        # If still not found, try with custom_llm_provider prefix
-        if cost_info is None and custom_llm_provider:
-            prefixed_model: Final = f"{custom_llm_provider}/{model}"
-            if prefixed_model in litellm.model_cost:
-                cost_info = litellm.model_cost[prefixed_model]
+        cost_info = _video_cost_info_with_deployment_overrides(cost_info, model_info)
 
     if cost_info is None:
         raise Exception(f"Model not found in cost map for model={model}")

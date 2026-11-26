@@ -4483,6 +4483,46 @@ def test_completion_cost_bills_interactions_video_output_at_video_rate():
     assert cost == pytest.approx(expected)
 
 
+@pytest.mark.parametrize(
+    ("deployment_info", "resolution", "expected_rate"),
+    [
+        # A per-second override wins, even over the cost map's video-wide rate (0.7).
+        ({"output_cost_per_second_720p": 0.2}, "720p", 0.2),
+        # Overriding one resolution keeps the cost-map price for the others.
+        ({"output_cost_per_second_720p": 0.2}, "1080p", 0.9),
+        # A flat override is the price for every resolution.
+        ({"output_cost_per_second": 0.1}, "1080p", 0.1),
+    ],
+)
+def test_default_video_cost_calculator_overlays_deployment_prices(
+    monkeypatch: pytest.MonkeyPatch, deployment_info: dict, resolution: str, expected_rate: float
+) -> None:
+    from litellm.cost_calculator import default_video_cost_calculator
+
+    monkeypatch.setitem(
+        litellm.model_cost,
+        "test_video_provider/test-video-model",
+        {
+            "litellm_provider": "test_video_provider",
+            "mode": "video_generation",
+            "output_cost_per_second": 0.9,
+            "output_cost_per_second_1080p": 0.9,
+            "output_cost_per_second_720p": 0.5,
+            "output_cost_per_video_per_second": 0.7 if "output_cost_per_second_720p" in deployment_info else None,
+        },
+    )
+
+    cost = default_video_cost_calculator(
+        model="test_video_provider/test-video-model",
+        duration_seconds=2,
+        custom_llm_provider="test_video_provider",
+        model_info=deployment_info,
+        video_resolution=resolution,
+    )
+
+    assert cost == pytest.approx(2 * expected_rate)
+
+
 @pytest.mark.parametrize("video_count", [2, 3])
 def test_completion_cost_multiplies_video_cost_by_generated_video_count(video_count: int) -> None:
     """Regression for LIT-6896: a Veo request for N samples generates N videos and must be billed N times."""
