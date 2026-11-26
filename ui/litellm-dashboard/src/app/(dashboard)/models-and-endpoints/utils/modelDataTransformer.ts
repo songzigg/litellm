@@ -10,12 +10,14 @@ export const perSecondCostTiers = (modelInfo: Record<string, unknown> | null | u
 
 interface RawLitellmParams extends LiteLLMParams {
   output_cost_per_second?: number;
+  input_cost_per_character?: number | null;
 }
 
 interface RawModelInfo extends ModelInfo {
   input_cost_per_token?: number | null;
   output_cost_per_token?: number | null;
   output_cost_per_second?: number;
+  input_cost_per_character?: number | null;
   max_tokens?: number;
   max_input_tokens?: number;
   [key: string]: unknown;
@@ -54,6 +56,10 @@ const transformModel = (rawModel: RawModel, getProviderFromModel: (model: string
     output_cost: costPerMillionTokens(modelInfo?.output_cost_per_token),
     output_cost_per_second: litellmParams.output_cost_per_second ?? modelInfo?.output_cost_per_second ?? null,
     output_cost_per_second_tiers: perSecondCostTiers(modelInfo),
+    // Per-character rates (TTS) are shown per 1M characters, like token rates.
+    input_cost_per_character: costPerMillionTokens(
+      litellmParams.input_cost_per_character ?? modelInfo?.input_cost_per_character,
+    ),
     litellm_model_name: litellmParams.model,
     max_tokens: modelInfo?.max_tokens,
     max_input_tokens: modelInfo?.max_input_tokens,

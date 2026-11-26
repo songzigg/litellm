@@ -207,21 +207,33 @@ function CostRow({ label, value }: { label: string; value: string }) {
 }
 
 function CostsCell({ model }: { model: ModelData }) {
-  const { input_cost: inputCost, output_cost: outputCost, output_cost_per_second: perSecond } = model;
+  const {
+    input_cost: inputCost,
+    output_cost: outputCost,
+    output_cost_per_second: perSecond,
+    input_cost_per_character: perCharacter,
+  } = model;
   const hasPerSecond = perSecond != null;
-  const showInput = inputCost != null && (!hasPerSecond || Number(inputCost) > 0);
-  const showOutput = outputCost != null && (!hasPerSecond || Number(outputCost) > 0);
+  const hasPerCharacter = perCharacter != null;
+  const hasNonTokenRate = hasPerSecond || hasPerCharacter;
+  const showInput = inputCost != null && (!hasNonTokenRate || Number(inputCost) > 0);
+  const showOutput = outputCost != null && (!hasNonTokenRate || Number(outputCost) > 0);
 
-  if (!showInput && !showOutput && !hasPerSecond) {
+  if (!showInput && !showOutput && !hasPerSecond && !hasPerCharacter) {
     return <span className="text-sm text-muted-foreground">-</span>;
   }
 
+  const tooltipParts = ["Cost per 1M tokens"];
+  if (hasPerCharacter) tooltipParts.push("/1M chars is cost per 1M input characters");
+  if (hasPerSecond) tooltipParts.push("/s is cost per second of output");
+
   return (
     <CellTooltip
-      content={hasPerSecond ? "Cost per 1M tokens; /s is cost per second of output" : "Cost per 1M tokens"}
+      content={tooltipParts.join("; ")}
       trigger={
         <div className="flex flex-col gap-0.5 whitespace-nowrap">
           {showInput && <CostRow label="IN" value={`$${inputCost}`} />}
+          {hasPerCharacter && <CostRow label="IN" value={`$${perCharacter}/1M chars`} />}
           {showOutput && <CostRow label="OUT" value={`$${outputCost}`} />}
           {hasPerSecond && <CostRow label="OUT" value={formatPerSecondCost(perSecond)} />}
         </div>
