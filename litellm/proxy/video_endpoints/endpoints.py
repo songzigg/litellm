@@ -38,6 +38,19 @@ from litellm.types.videos.utils import (
 router: Final = APIRouter()
 
 
+_VIDEO_FORM_BOOLEAN_FIELDS: Final[frozenset[str]] = frozenset({"audio", "prompt_extend", "watermark"})
+
+
+def _normalize_video_form_boolean_fields(data: dict) -> None:
+    """Convert HTML form boolean strings before video provider parameter validation."""
+    for field in _VIDEO_FORM_BOOLEAN_FIELDS:
+        value = data.get(field)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "false"}:
+                data[field] = normalized == "true"
+
+
 @router.post(
     "/v1/videos",
     dependencies=[Depends(user_api_key_auth)],
@@ -89,6 +102,7 @@ async def video_generation(
 
     # Read request body
     data: Final = await read_request_body(request=request)
+    _normalize_video_form_boolean_fields(data)
     requested: Final = VideoRequestRoute.model_validate(data)
     if input_reference is not None:
         input_reference_file: Final = await batch_to_bytesio([input_reference])
